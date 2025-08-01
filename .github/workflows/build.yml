@@ -180,21 +180,37 @@ jobs:
         python -c "import os; print('PATH:', os.environ.get('PATH'))"
         python -c "from kivy import kivy_data_dir; print('Kivy data dir:', kivy_data_dir)"
         
+        # 确保输出目录存在
+        mkdir -p .buildozer/android/app/build/outputs/apk/debug
+        
         # 使用详细日志构建
         buildozer android debug -v 2>&1 | tee buildozer.log
+        BUILD_RESULT=$?
+        
+        echo "构建完成，检查构建结果..."
+        find .buildozer -name "*.apk" -type f -print || true
         
         # 如果构建失败，显示日志末尾
-        if [ $? -ne 0 ]; then
+        if [ $BUILD_RESULT -ne 0 ]; then
           echo "Build failed. Last 100 lines of log:"
           tail -n 100 buildozer.log
           exit 1
         fi
 
+    - name: List Build Directories
+      run: |
+        echo "查看构建目录结构..."
+        ls -la .buildozer/android/app/build/outputs/apk/debug || true
+        echo "查看APK文件..."
+        find . -name "*.apk" -type f -print || true
+
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: bin/*.apk
+        path: |
+          .buildozer/android/app/build/outputs/apk/debug/*.apk
+          .buildozer/android/platform/build-*/dists/*/*.apk
         retention-days: 90
         if-no-files-found: error
         if-no-files-found: warn
