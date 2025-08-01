@@ -180,36 +180,49 @@ jobs:
         python -c "import os; print('PATH:', os.environ.get('PATH'))"
         python -c "from kivy import kivy_data_dir; print('Kivy data dir:', kivy_data_dir)"
         
-        # 确保输出目录存在
-        mkdir -p .buildozer/android/app/build/outputs/apk/debug
-        
         # 使用详细日志构建
         buildozer android debug -v 2>&1 | tee buildozer.log
         BUILD_RESULT=$?
         
         echo "构建完成，检查构建结果..."
-        find .buildozer -name "*.apk" -type f -print || true
-        
-        # 如果构建失败，显示日志末尾
         if [ $BUILD_RESULT -ne 0 ]; then
-          echo "Build failed. Last 100 lines of log:"
+          echo "构建失败。显示日志末尾:"
           tail -n 100 buildozer.log
           exit 1
+        else
+          echo "构建成功。搜索APK文件..."
+          find .buildozer -name "*.apk" -type f -exec readlink -f {} \;
         fi
 
-    - name: List Build Directories
+    - name: Locate APK Files
+      id: apk-location
       run: |
-        echo "查看构建目录结构..."
-        ls -la .buildozer/android/app/build/outputs/apk/debug || true
-        echo "查看APK文件..."
-        find . -name "*.apk" -type f -print || true
+        echo "正在搜索APK文件..."
+        mkdir -p upload-apk
+        
+        # 搜索所有可能的APK位置
+        echo "查找所有APK文件..."
+        find .buildozer -name "*.apk" -type f -print
+        
+        # 复制找到的APK文件到上传目录
+        if find .buildozer -name "*.apk" -type f -exec cp -v {} upload-apk/ \; ; then
+          echo "已找到并复制APK文件到上传目录"
+          ls -l upload-apk/
+        else
+          echo "未找到任何APK文件"
+          echo "显示构建目录内容："
+          ls -R .buildozer/android/
+          
+          if [ -f "buildozer.log" ]; then
+            echo "显示buildozer日志末尾:"
+            tail -n 100 buildozer.log
+          fi
+        fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: |
-          .buildozer/android/app/build/outputs/apk/debug/*.apk
-          .buildozer/android/platform/build-*/dists/*/*.apk
+        path: upload-apk
         retention-days: 90
         if-no-files-found: warn
