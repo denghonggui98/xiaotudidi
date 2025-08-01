@@ -120,10 +120,17 @@ jobs:
         NDK_HOME="/home/runner/.buildozer/android/platform/android-ndk-r25b"
         echo "ANDROID_NDK_HOME=${NDK_HOME}" >> $GITHUB_ENV
         echo "ANDROID_NDK_ROOT=${NDK_HOME}" >> $GITHUB_ENV
+        echo "ANDROID_NDK=${NDK_HOME}" >> $GITHUB_ENV
         echo "ANDROIDNDK=${NDK_HOME}" >> $GITHUB_ENV
         
         # 确保目录存在
         mkdir -p ${NDK_HOME}
+        
+        # 显示环境变量用于调试
+        echo "ANDROID_NDK_HOME: ${ANDROID_NDK_HOME}"
+        echo "ANDROID_NDK_ROOT: ${ANDROID_NDK_ROOT}"
+        echo "ANDROID_NDK: ${ANDROID_NDK}"
+        echo "ANDROIDNDK: ${ANDROIDNDK}"
 
     - name: Build APK with detailed logging
       run: |
