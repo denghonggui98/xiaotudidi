@@ -10,14 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Initialize Git Repository
-      run: |
-        git init
-        git config --global user.email "you@example.com"
-        git config --global user.name "Your Name"
-        git add .
-        git commit -m "Initial commit"
-        
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
@@ -198,62 +190,11 @@ jobs:
           exit 1
         fi
 
-    - name: Locate APK Files
-      run: |
-        echo "Looking for APK files..."
-        echo "Current directory: $(pwd)"
-        
-        echo "Full directory structure:"
-        find . -type d -name ".buildozer" -exec find {} -type d \;
-        
-        echo "Searching for APK in standard locations..."
-        APK_LOCATIONS=(
-          ".buildozer/android/app/build/outputs/apk/debug"
-          ".buildozer/android/platform/build-arm64-v8a/dists/xiaotudidi"
-          "bin"
-          "dist"
-        )
-        
-        echo "Creating upload directory..."
-        mkdir -p artifact-upload
-        
-        # 在所有可能的位置搜索APK
-        found_apk=false
-        for location in "${APK_LOCATIONS[@]}"; do
-          echo "Checking $location for APK files..."
-          if [ -d "$location" ]; then
-            if find "$location" -name "*.apk" -type f -exec cp -v {} artifact-upload/ \; ; then
-              echo "Found and copied APK from $location"
-              found_apk=true
-            fi
-          fi
-        done
-        
-        # 全局搜索APK文件
-        echo "Performing global APK search..."
-        if find . -name "*.apk" -type f ! -path "./artifact-upload/*" -exec cp -v {} artifact-upload/ \; ; then
-          found_apk=true
-        fi
-        
-        # 显示上传目录内容
-        echo "Upload directory contents:"
-        ls -la artifact-upload/
-        
-        # 检查是否找到了APK文件
-        if [ "$found_apk" = false ]; then
-          echo "No APK files found anywhere in the project"
-          # 显示buildozer日志末尾以帮助诊断问题
-          if [ -f "buildozer.log" ]; then
-            echo "Last 50 lines of buildozer.log:"
-            tail -n 50 buildozer.log
-          fi
-          exit 1
-        fi
-
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: artifact-upload
+        path: bin/*.apk
         retention-days: 90
+        if-no-files-found: error
         if-no-files-found: warn
