@@ -1,9 +1,9 @@
 name: Build APK
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
   build:
@@ -227,6 +227,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: upload-apk
+        path: |
+          upload-apk/**
         retention-days: 90
         if-no-files-found: warn
