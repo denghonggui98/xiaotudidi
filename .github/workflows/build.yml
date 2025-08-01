@@ -114,6 +114,17 @@ jobs:
         path: ~/.buildozer/android/platform/android-ndk-r25b
         key: ndk-r25b-cache
 
+    - name: Set NDK environment variables
+      run: |
+        # 统一NDK路径配置
+        NDK_HOME="/home/runner/.buildozer/android/platform/android-ndk-r25b"
+        echo "ANDROID_NDK_HOME=${NDK_HOME}" >> $GITHUB_ENV
+        echo "ANDROID_NDK_ROOT=${NDK_HOME}" >> $GITHUB_ENV
+        echo "ANDROIDNDK=${NDK_HOME}" >> $GITHUB_ENV
+        
+        # 确保目录存在
+        mkdir -p ${NDK_HOME}
+
     - name: Build APK with detailed logging
       run: |
         echo "Starting APK build with detailed logging..."
