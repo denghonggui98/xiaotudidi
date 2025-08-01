@@ -212,5 +212,4 @@ jobs:
           .buildozer/android/app/build/outputs/apk/debug/*.apk
           .buildozer/android/platform/build-*/dists/*/*.apk
         retention-days: 90
-        if-no-files-found: error
         if-no-files-found: warn
