@@ -19,12 +19,6 @@ jobs:
       with:
         path: ~/.buildozer
         key: buildozer-global-${{ hashFiles('buildozer.spec') }}
-        
-    - name: Cache Android NDK
-      uses: actions/cache@v4
-      with:
-        path: ~/.buildozer/android/platform/android-ndk-r25b
-        key: android-ndk-r25b
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -37,9 +31,9 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Android SDK and NDK
+    - name: Install Android SDK
       run: |
-        echo "Installing Android SDK components..."
+        echo "Installing Android SDK..."
         # 设置SDK版本
         SDK_VERSION="34"
         BUILD_TOOLS_VERSION="34.0.0"
@@ -114,58 +108,110 @@ jobs:
           make \
           openjdk-17-jdk
 
-    - name: Build APK with retry mechanism
+    - name: Pre-download and cache NDK
       run: |
-        echo "Starting APK build with retry mechanism..."
+        # 设置NDK版本
+        NDK_VERSION="25.2.9519653"
+        export ANDROID_HOME=/usr/local/lib/android/sdk
+        
+        # 创建NDK目录
+        mkdir -p "${ANDROID_HOME}/ndk"
+        
+        # 检查是否已缓存NDK
+        if [ ! -d "${ANDROID_HOME}/ndk/${NDK_VERSION}" ]; then
+          echo "NDK not found in cache, downloading..."
+          # 下载NDK
+          wget -O ndk.zip https://dl.google.com/android/repository/android-ndk-r${NDK_VERSION}-linux.zip
+          # 解压NDK
+          unzip -q ndk.zip
+          # 移动到正确位置
+          mv android-ndk-r${NDK_VERSION} "${ANDROID_HOME}/ndk/${NDK_VERSION}"
+          echo "NDK downloaded and installed"
+        else
+          echo "NDK found in cache"
+        fi
+        
+        # 设置NDK路径
+        export ANDROID_NDK_HOME="${ANDROID_HOME}/ndk/${NDK_VERSION}"
+        export ANDROID_NDK_ROOT="${ANDROID_HOME}/ndk/${NDK_VERSION}"
+        
+        # 验证NDK安装
+        echo "Verifying NDK installation..."
+        if [ -d "${ANDROID_NDK_HOME}" ] && [ -f "${ANDROID_NDK_HOME}/ndk-build" ]; then
+            echo "NDK installed successfully at: ${ANDROID_NDK_HOME}"
+            echo "NDK version: $(cat ${ANDROID_NDK_HOME}/source.properties | grep Pkg.Revision)"
+        else
+            echo "Error: NDK installation verification failed"
+            echo "ANDROID_NDK_HOME: ${ANDROID_NDK_HOME}"
+            echo "Directory contents:"
+            ls -la "${ANDROID_HOME}/ndk"
+            ls -la "${ANDROID_NDK_HOME}" 2>/dev/null || echo "NDK directory does not exist"
+            exit 1
+        fi
+        
+        # 导出环境变量
+        {
+            echo "ANDROID_NDK_HOME=${ANDROID_NDK_HOME}"
+            echo "ANDROID_NDK_ROOT=${ANDROID_NDK_ROOT}"
+        } >> $GITHUB_ENV
+
+    - name: Build APK with detailed logging
+      run: |
+        echo "Starting APK build with detailed logging..."
         echo "Python version:"
         python --version
         echo "Buildozer version:"
         buildozer --version
-        
-        # 设置p4a
-        export P4A_RELEASE_KEYSTORE=~/.buildozer/android/platform/release-key.keystore
-        export P4A_RELEASE_KEYSTORE_PASSWD=android
-        export P4A_RELEASE_KEYALIAS_PASSWD=android
-        export P4A_RELEASE_KEYALIAS=android
-        
-        # 确保构建目录存在
-        mkdir -p .buildozer
+        echo "Environment variables:"
+        env | grep ANDROID
+        echo "JAVA_HOME=$JAVA_HOME"
         
         # 检查Python依赖
         python -c "import kivy; print('Kivy version:', kivy.__version__)"
         python -c "from PIL import Image; print('Pillow version:', Image.__version__)"
         python -c "import cython; print('Cython version:', cython.__version__)"
         
-        # 尝试最多3次构建
-        MAX_RETRIES=3
-        RETRY_COUNT=0
-        BUILD_SUCCESS=false
+        # 显示项目结构
+        echo "Project structure:"
+        ls -la
         
-        while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$BUILD_SUCCESS" = "false" ]; do
-          RETRY_COUNT=$((RETRY_COUNT + 1))
-          echo "尝试构建 #$RETRY_COUNT..."
-          
-          # 使用详细日志构建
-          echo "开始构建APK..."
-          if buildozer android debug -v --verbose | tee buildozer.log; then
-            BUILD_SUCCESS=true
-            echo "构建成功完成。"
-          else
-            BUILD_RESULT=$?
-            echo "构建失败，返回码: $BUILD_RESULT"
-            echo "显示buildozer日志末尾:"
-            tail -n 100 buildozer.log
-            
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-              echo "等待10秒后重试..."
-              sleep 10
-            fi
-          fi
-        done
+        # 清理之前的构建（如果有）
+        rm -rf .buildozer/android/platform/build-*
         
-        if [ "$BUILD_SUCCESS" = "false" ]; then
-          echo "构建在 $MAX_RETRIES 次尝试后仍然失败。"
+        # 使用详细日志构建
+        echo "开始构建APK..."
+        buildozer android debug -v --verbose | tee buildozer.log
+        BUILD_RESULT=$?
+        
+        echo "构建完成，检查构建结果..."
+        echo "Build result code: $BUILD_RESULT"
+        
+        # 显示详细日志
+        echo "显示buildozer日志末尾:"
+        tail -n 200 buildozer.log
+        
+        # 搜索所有可能的日志文件
+        echo "搜索所有日志文件:"
+        find . -name "*.log" -type f -exec echo "Found log file: {}" \; -exec tail -n 50 {} \;
+        
+        # 搜索APK文件
+        echo "搜索APK文件:"
+        find . -name "*.apk" -type f -print
+        
+        # 显示构建目录结构
+        echo "显示构建目录结构:"
+        ls -R .buildozer/android/ 2>/dev/null || echo ".buildozer/android/目录不存在"
+        
+        # 如果构建失败，显示更多调试信息
+        if [ $BUILD_RESULT -ne 0 ]; then
+          echo "构建失败。显示更多调试信息:"
+          echo "当前目录内容:"
+          ls -la
+          echo ".buildozer目录内容:"
+          ls -la .buildozer 2>/dev/null || echo ".buildozer目录不存在"
           exit 1
+        else
+          echo "构建成功。"
         fi
 
     - name: Locate and Upload APK
@@ -187,7 +233,7 @@ jobs:
         else
           echo "未找到APK文件"
           echo "显示构建目录内容："
-          ls -R .buildozer/ || echo ".buildozer目录不存在"
+          ls -R .buildozer/ 2>/dev/null || echo ".buildozer目录不存在"
           
           # 搜索可能的APK文件位置
           echo "在更多位置搜索APK文件:"
