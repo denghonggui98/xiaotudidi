@@ -108,52 +108,6 @@ jobs:
           make \
           openjdk-17-jdk
 
-    - name: Pre-download and cache NDK
-      run: |
-        # 设置NDK版本
-        NDK_VERSION="25.2.9519653"
-        export ANDROID_HOME=/usr/local/lib/android/sdk
-        
-        # 创建NDK目录
-        mkdir -p "${ANDROID_HOME}/ndk"
-        
-        # 检查是否已缓存NDK
-        if [ ! -d "${ANDROID_HOME}/ndk/${NDK_VERSION}" ]; then
-          echo "NDK not found in cache, downloading..."
-          # 下载NDK
-          wget -O ndk.zip https://dl.google.com/android/repository/android-ndk-r${NDK_VERSION}-linux.zip
-          # 解压NDK
-          unzip -q ndk.zip
-          # 移动到正确位置
-          mv android-ndk-r${NDK_VERSION} "${ANDROID_HOME}/ndk/${NDK_VERSION}"
-          echo "NDK downloaded and installed"
-        else
-          echo "NDK found in cache"
-        fi
-        
-        # 设置NDK路径
-        export ANDROID_NDK_HOME="${ANDROID_HOME}/ndk/${NDK_VERSION}"
-        export ANDROID_NDK_ROOT="${ANDROID_HOME}/ndk/${NDK_VERSION}"
-        
-        # 验证NDK安装
-        echo "Verifying NDK installation..."
-        if [ -d "${ANDROID_NDK_HOME}" ] && [ -f "${ANDROID_NDK_HOME}/ndk-build" ]; then
-            echo "NDK installed successfully at: ${ANDROID_NDK_HOME}"
-            echo "NDK version: $(cat ${ANDROID_NDK_HOME}/source.properties | grep Pkg.Revision)"
-        else
-            echo "Error: NDK installation verification failed"
-            echo "ANDROID_NDK_HOME: ${ANDROID_NDK_HOME}"
-            echo "Directory contents:"
-            ls -la "${ANDROID_HOME}/ndk"
-            ls -la "${ANDROID_NDK_HOME}" 2>/dev/null || echo "NDK directory does not exist"
-            exit 1
-        fi
-        
-        # 导出环境变量
-        {
-            echo "ANDROID_NDK_HOME=${ANDROID_NDK_HOME}"
-            echo "ANDROID_NDK_ROOT=${ANDROID_NDK_ROOT}"
-        } >> $GITHUB_ENV
 
     - name: Build APK with detailed logging
       run: |

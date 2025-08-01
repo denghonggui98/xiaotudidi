@@ -25,7 +25,7 @@ android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 android.api = 34
 android.minapi = 21
 android.sdk = 34
-android.ndk = 25.2.9519653
+android.ndk = 25b
 android.ndk_api = 21
 android.bootstrap = sdl2
 
