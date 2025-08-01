@@ -20,7 +20,7 @@ version.filename = %(source.dir)s/main.py
 requirements = hostpython3==3.9.18,python3==3.9.18,kivy==2.2.1,pillow==10.0.0,cython==3.0.2
 
 # Android配置
-android.arch = arm64-v8a
+android.archs = arm64-v8a
 android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 android.api = 34
 android.minapi = 21
