@@ -42,6 +42,9 @@ android.logcat_filters = *:S python:D
 android.copy_libs = 1
 android.debug_symbols = True
 
+# Hook模块配置
+p4a.hook = hookmodules/hook.py
+
 # 输出目录配置
 android.output_dir = bin
 

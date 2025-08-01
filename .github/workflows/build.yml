@@ -108,6 +108,11 @@ jobs:
           make \
           openjdk-17-jdk
 
+    - name: Cache NDK
+      uses: actions/cache@v4
+      with:
+        path: ~/.buildozer/android/platform/android-ndk-r25b
+        key: ndk-r25b-cache
 
     - name: Build APK with detailed logging
       run: |
