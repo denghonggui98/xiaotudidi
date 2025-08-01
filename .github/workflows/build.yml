@@ -129,9 +129,9 @@ jobs:
           make \
           openjdk-17-jdk
 
-    - name: Build APK
+    - name: Build APK with detailed logging
       run: |
-        echo "Starting APK build..."
+        echo "Starting APK build with detailed logging..."
         echo "Python version:"
         python --version
         echo "Buildozer version:"
@@ -177,17 +177,39 @@ jobs:
         python -c "from kivy import kivy_data_dir; print('Kivy data dir:', kivy_data_dir)"
         
         # 使用详细日志构建
-        buildozer android debug -v 2>&1 | tee buildozer.log
+        echo "开始构建APK..."
+        buildozer android debug -v --verbose | tee buildozer.log
         BUILD_RESULT=$?
         
         echo "构建完成，检查构建结果..."
+        echo "Build result code: $BUILD_RESULT"
+        
+        # 显示详细日志
+        echo "显示buildozer日志末尾:"
+        tail -n 200 buildozer.log
+        
+        # 搜索所有可能的日志文件
+        echo "搜索所有日志文件:"
+        find . -name "*.log" -type f -exec echo "Found log file: {}" \; -exec tail -n 50 {} \;
+        
+        # 搜索APK文件
+        echo "搜索APK文件:"
+        find . -name "*.apk" -type f -print
+        
+        # 显示构建目录结构
+        echo "显示构建目录结构:"
+        ls -R .buildozer/android/ || echo ".buildozer/android/目录不存在"
+        
+        # 如果构建失败，显示更多调试信息
         if [ $BUILD_RESULT -ne 0 ]; then
-          echo "构建失败。显示日志末尾:"
-          tail -n 100 buildozer.log
+          echo "构建失败。显示更多调试信息:"
+          echo "当前目录内容:"
+          ls -la
+          echo ".buildozer目录内容:"
+          ls -la .buildozer
           exit 1
         else
-          echo "构建成功。搜索APK文件..."
-          find .buildozer -name "*.apk" -type f -exec readlink -f {} \;
+          echo "构建成功。"
         fi
 
     - name: Locate and Upload APK
@@ -209,23 +231,30 @@ jobs:
         else
           echo "未找到APK文件"
           echo "显示构建目录内容："
-          ls -R .buildozer/android/ || echo "目录不存在"
+          ls -R .buildozer/ || echo ".buildozer目录不存在"
           
-          if [ -f "buildozer.log" ]; then
-            echo "显示buildozer日志末尾:"
-            tail -n 200 buildozer.log
-          fi
+          # 搜索可能的APK文件位置
+          echo "在更多位置搜索APK文件:"
+          find . -type f -name "*.apk" -o -name "*buildozer*" | head -20
           
-          # 创建一个标记文件表示构建完成但没有生成APK
-          echo "Build completed but no APK generated" > build_result.txt
+          # 创建一个包含详细构建信息的文件
+          echo "Build completed at: $(date)" > build_result.txt
+          echo "Build result: No APK generated" >> build_result.txt
+          echo "Debug information:" >> build_result.txt
+          echo "Current directory: $(pwd)" >> build_result.txt
+          echo "Directory contents:" >> build_result.txt
+          ls -la >> build_result.txt
+          echo ".buildozer contents:" >> build_result.txt
+          ls -la .buildozer >> build_result.txt 2>&1 || echo ".buildozer directory does not exist" >> build_result.txt
         fi
 
-    - name: Upload APK
+    - name: Upload Build Results
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug-apk
+        name: build-results
         path: |
           apks/
           build_result.txt
+          buildozer.log
         retention-days: 90
         if-no-files-found: ignore
