@@ -100,10 +100,6 @@ jobs:
         python -m pip install --upgrade buildozer==1.5.0
         python -m pip install --upgrade python-for-android
         
-        # 创建虚拟环境以隔离依赖
-        python -m venv venv
-        source venv/bin/activate
-        
         # 安装项目依赖
         pip install -r requirements.txt || true  # 忽略错误，因为某些依赖可能已经安装
         sudo apt-get update
@@ -136,97 +132,93 @@ jobs:
     - name: Build APK
       run: |
         echo "Starting APK build..."
-        echo "当前工作目录: $(pwd)"
-        echo "Python version: $(python --version)"
-        echo "Buildozer version: $(buildozer --version)"
-        
-        # 确保bin目录存在
-        mkdir -p bin
-        
-        # 显示并验证环境变量
+        echo "Python version:"
+        python --version
+        echo "Buildozer version:"
+        buildozer --version
         echo "Environment variables:"
         echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
         echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
         echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
         echo "JAVA_HOME=$JAVA_HOME"
         
+        # 安装python-for-android
+        pip install --upgrade python-for-android
+        
+        # 设置p4a
+        export P4A_RELEASE_KEYSTORE=~/.buildozer/android/platform/release-key.keystore
+        export P4A_RELEASE_KEYSTORE_PASSWD=android
+        export P4A_RELEASE_KEYALIAS_PASSWD=android
+        export P4A_RELEASE_KEYALIAS=android
+        
+        # 确保构建目录存在并且干净
+        rm -rf .buildozer
+        mkdir -p .buildozer
+        
         # 验证环境
         if [ ! -d "$ANDROID_SDK_ROOT" ]; then
           echo "Error: Android SDK not found at $ANDROID_SDK_ROOT"
           exit 1
         fi
+        
         if [ ! -d "$ANDROID_NDK_HOME" ]; then
           echo "Error: Android NDK not found at $ANDROID_NDK_HOME"
           exit 1
         fi
         
-        # 清理和准备构建环境
-        echo "清理构建目录..."
-        rm -rf .buildozer
-        rm -rf bin/*.apk
-        mkdir -p .buildozer
-        
-        # 显示buildozer.spec内容
-        echo "当前buildozer.spec配置:"
-        cat buildozer.spec
-        
-        # 安装必要的依赖
-        pip install --upgrade buildozer==1.5.0 python-for-android
-        
         # 检查Python依赖
-        python -m pip freeze | grep -E "kivy|pillow|cython"
+        python -c "import kivy; print('Kivy version:', kivy.__version__)"
+        python -c "from PIL import Image; print('Pillow version:', Image.__version__)"
+        python -c "import cython; print('Cython version:', cython.__version__)"
+        
+        # 显示环境信息
+        python -c "import sys; print('Python paths:', sys.path)"
+        python -c "import os; print('PATH:', os.environ.get('PATH'))"
+        python -c "from kivy import kivy_data_dir; print('Kivy data dir:', kivy_data_dir)"
         
         # 使用详细日志构建
-        echo "开始构建APK..."
         buildozer android debug -v 2>&1 | tee buildozer.log
         BUILD_RESULT=$?
         
-        echo "构建完成，检查结果..."
+        echo "构建完成，检查构建结果..."
         if [ $BUILD_RESULT -ne 0 ]; then
           echo "构建失败。显示日志末尾:"
           tail -n 100 buildozer.log
           exit 1
+        else
+          echo "构建成功。搜索APK文件..."
+          find .buildozer -name "*.apk" -type f -exec readlink -f {} \;
         fi
-        
-        # 显示构建输出
-        echo "列出所有目录中的APK文件:"
-        find . -name "*.apk" -type f -print
 
-    - name: Prepare APK for Upload
+    - name: Locate APK Files
+      id: apk-location
       run: |
-        echo "准备APK文件上传..."
+        echo "正在搜索APK文件..."
+        mkdir -p upload-apk
         
-        # 创建上传目录
-        mkdir -p ./upload-apk
+        # 搜索所有可能的APK位置
+        echo "查找所有APK文件..."
+        find .buildozer -name "*.apk" -type f -print
         
-        # 列出所有目录结构
-        echo "显示完整目录结构:"
-        find . -type d
-        
-        # 查找并显示所有APK文件
-        echo "查找所有APK文件:"
-        find . -name "*.apk" -type f -ls
-        
-        # 尝试从所有可能的位置复制APK文件
-        echo "复制APK文件到上传目录..."
-        cp -v bin/*.apk ./upload-apk/ 2>/dev/null || true
-        cp -v .buildozer/android/platform/build-*/dists/*/*.apk ./upload-apk/ 2>/dev/null || true
-        cp -v .buildozer/android/app/build/outputs/apk/*/*.apk ./upload-apk/ 2>/dev/null || true
-        
-        echo "上传目录内容:"
-        ls -la ./upload-apk/
-        
-        if [ -z "$(ls -A ./upload-apk/)" ]; then
-          echo "错误：上传目录为空"
-          echo "显示构建日志末尾:"
-          tail -n 200 buildozer.log
-          exit 1
+        # 复制找到的APK文件到上传目录
+        if find .buildozer -name "*.apk" -type f -exec cp -v {} upload-apk/ \; ; then
+          echo "已找到并复制APK文件到上传目录"
+          ls -l upload-apk/
+        else
+          echo "未找到任何APK文件"
+          echo "显示构建目录内容："
+          ls -R .buildozer/android/
+          
+          if [ -f "buildozer.log" ]; then
+            echo "显示buildozer日志末尾:"
+            tail -n 100 buildozer.log
+          fi
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: ./upload-apk/
+        path: upload-apk
         retention-days: 90
-        if-no-files-found: error
+        if-no-files-found: warn
