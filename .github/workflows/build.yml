@@ -190,36 +190,42 @@ jobs:
           find .buildozer -name "*.apk" -type f -exec readlink -f {} \;
         fi
 
-    - name: Locate APK Files
-      id: apk-location
+    - name: Locate and Upload APK
       run: |
-        echo "正在搜索APK文件..."
-        mkdir -p upload-apk
+        echo "正在搜索并上传APK文件..."
         
-        # 搜索所有可能的APK位置
+        # 创建上传目录
+        mkdir -p apks
+        
+        # 搜索所有APK文件并复制到上传目录
         echo "查找所有APK文件..."
-        find .buildozer -name "*.apk" -type f -print
+        find . -name "*.apk" -type f -print
+        find . -name "*.apk" -type f -exec cp {} apks/ \;
         
-        # 复制找到的APK文件到上传目录
-        if find .buildozer -name "*.apk" -type f -exec cp -v {} upload-apk/ \; ; then
-          echo "已找到并复制APK文件到上传目录"
-          ls -l upload-apk/
+        # 检查是否找到APK文件
+        if [ "$(ls -A apks)" ]; then
+          echo "找到以下APK文件:"
+          ls -la apks/
         else
-          echo "未找到任何APK文件"
+          echo "未找到APK文件"
           echo "显示构建目录内容："
-          ls -R .buildozer/android/
+          ls -R .buildozer/android/ || echo "目录不存在"
           
           if [ -f "buildozer.log" ]; then
             echo "显示buildozer日志末尾:"
-            tail -n 100 buildozer.log
+            tail -n 200 buildozer.log
           fi
+          
+          # 创建一个标记文件表示构建完成但没有生成APK
+          echo "Build completed but no APK generated" > build_result.txt
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
+        name: app-debug-apk
         path: |
-          upload-apk/**
+          apks/
+          build_result.txt
         retention-days: 90
-        if-no-files-found: warn
+        if-no-files-found: ignore
