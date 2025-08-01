@@ -25,7 +25,7 @@ android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 android.api = 34
 android.minapi = 21
 android.sdk = 34
-android.ndk = 25.2.9519653
+android.ndk = 25b
 android.ndk_api = 21
 android.bootstrap = sdl2
 
@@ -41,6 +41,9 @@ android.release_artifact = apk
 android.logcat_filters = *:S python:D
 android.copy_libs = 1
 android.debug_symbols = True
+
+# Hook模块配置
+p4a.hook = hookmodules/hook.py
 
 # 输出目录配置
 android.output_dir = .buildozer/android/app/build/outputs/apk/debug

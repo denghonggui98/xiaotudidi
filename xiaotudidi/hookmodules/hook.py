@@ -9,10 +9,19 @@ def before_apk_build(context):
         print(f"NDK path set to: {ndk_path}")
     else:
         # 如果环境变量未设置或路径不存在，使用默认路径
-        default_ndk_path = "/home/runner/.buildozer/android/platform/android-ndk-r25b"
-        if os.path.exists(default_ndk_path):
-            context.android_ndk = default_ndk_path
-            print(f"NDK path set to default: {default_ndk_path}")
+        default_ndk_paths = [
+            "/home/runner/.buildozer/android/platform/android-ndk-r25b",
+            "/usr/local/lib/android/sdk/ndk/27.3.13750724",
+            "/usr/local/lib/android/sdk/ndk/25.2.9519653"
+        ]
+        
+        for path in default_ndk_paths:
+            if os.path.exists(path):
+                context.android_ndk = path
+                print(f"NDK path set to default: {path}")
+                break
+        else:
+            print("Warning: No valid NDK path found")
     
     # 确保SDK路径正确
     sdk_path = os.environ.get('ANDROID_SDK_ROOT')
