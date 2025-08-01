@@ -43,7 +43,7 @@ android.copy_libs = 1
 android.debug_symbols = True
 
 # 输出目录配置
-android.output_dir = .buildozer/android/app/build/outputs/apk/debug
+android.output_dir = bin
 
 [buildozer]
 # 日志配置
@@ -52,4 +52,4 @@ warn_on_root = 1
 
 # 构建目录配置
 build_dir = .buildozer
-bin_dir = .buildozer/android/app/build/outputs/apk/debug
+bin_dir = bin
